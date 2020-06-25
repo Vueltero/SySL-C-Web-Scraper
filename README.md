@@ -1,6 +1,5 @@
 # SySL-C-Web-Scraper
-## TP-Taller-Mecanico
-Sintaxis y Semántica de los lengujes - Curso K2054 - TP - C Web-Scraper
+## Sintaxis y Semántica de los lengujes - Curso K2054 - TP - C Web-Scraper
 
 -- Integrantes TP --
 Nombre : Vuelta Agustín
