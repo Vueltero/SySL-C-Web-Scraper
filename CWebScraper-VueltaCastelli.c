@@ -1,7 +1,7 @@
 //Sintaxis y semántica de los lenguajes
 //Trabajo Práctico Nro 1
 
-//C Web Scraper
+//Web Scraping Financiero
 //Vuelta Agustín
 //Castelli Santiago
 
@@ -12,21 +12,19 @@
 #define BOLSAR_HTML "wget -q -O - https://52.67.80.139/test/lideres-bcba_limpio.html --no-check-certificate"
 #define OPEN_ERROR "Error al intentar abrir el archivo."
 
-
 //Usefull link:
 //https://en.wikibooks.org/wiki/C_Programming/String_manipulation
-
 
 //prototipos
 bool Mostrar(char []);
 void Menu();
-bool Variacion(char []);
-bool DevolverTabla(char []);
+bool ListarVariacion(char []);
+void removeSubstr(char *, char *);
 
-//main function
+//driver function
 void main()
 {
-	char op;
+  char op;
   do
   {
     Menu();
@@ -40,30 +38,23 @@ void main()
       case '1':
         if (!Mostrar(BOLSAR_HTML))
           printf(OPEN_ERROR);
-      	break;    
-			case '2':
-        if (!Variacion(BOLSAR_HTML))
+        break;
+      case '2':
+        if (!ListarVariacion(BOLSAR_HTML))
           printf(OPEN_ERROR);
-      	break;  
-			case '3':
-        if (!DevolverTabla(BOLSAR_HTML))
-          printf(OPEN_ERROR);
-      	break;
+        break;
     }
   } while (op != 27); //mientras que no presione Esc..
-  return 0;
 }
 
 bool Mostrar(char ruta[])
 {
-  FILE *popen(const char *command, const char *node);
-	int pclose(FILE *stream);
-  char buffer[129024];
   FILE *www;
+  char buffer[129024];
   if (www = popen(ruta, "r"))
   {
-    while (fgets(buffer, sizeof(buffer), www) != NULL)
-			printf("%s", buffer);
+    while (fgets(buffer, 129024, www))
+      printf("%s", buffer);
     pclose(www);
     return true;
   }
@@ -71,23 +62,92 @@ bool Mostrar(char ruta[])
     return false;
 }
 
-//estoy probando algunas funciones para ver como se comportan
-//strcmp compara dos strings
-//strtok pones un limitadot y va borra y separa los strings
-bool Variacion(char ruta[])
+//va leyendo el string, va contando "<td>", si es el 1, guarda la especie
+//en una variable, sigue leyendo, si es el 8, guarda la variacion % en una
+//variable, si la variacion es > 0.5, imprime la especie y su variacion,
+//sino, sigue leyendo hasta leer el <td> 16, resetea el contador, repeat
+bool ListarVariacion(char ruta[])
 {
-  FILE *popen(const char *command, const char *node);
-	int pclose(FILE *stream);
-  char buffer[256];
   FILE *www;
-  char *str;
+  char buffer[129024], tabla[129024], *ptr;
+  char tableStart[] = "<td>ALUA</td><td>P. E.</td>";
+  char tableEnd[] = "<td>YPFD</td><td>P. E.</td>";
+  bool foundTabla = false;
   if (www = popen(ruta, "r"))
   {
-    while (fgets(buffer, sizeof(buffer), www) != NULL)
+    while (fgets(buffer, 129024, www) != NULL)
     {
-			str = (strstr(buffer,"Variac")) ; // busca la palabra dentro del texto, al resto la pasa a null
-			printf("%s", str);		
-		}
+      if (ptr = strstr(buffer, tableStart))
+        foundTabla = true;
+      if (foundTabla == true)
+        strcat(tabla, buffer);
+      if (ptr = strstr(buffer, tableEnd))
+      {
+        pclose(www);        
+        //aca ya guardó la tabla en el string tabla
+        //antes que nada, sacarle todos los </td>, <tr>, </tr>
+        removeSubstr(tabla, "</td>");
+        removeSubstr(tabla, "<tr>");
+        removeSubstr(tabla, "</tr>");
+        char sub[] = "<td>", *p;
+        int cont, cont1 = 0, i, j, k;
+        char especie[100], variacion[100];
+        float fVariacion;
+        for (i=0 ; i<strlen(tabla) ;)
+        {
+          j = 0;
+          cont = 0;
+          while ((tabla[i] == sub[j]))
+          {
+            cont++;
+            i++;
+            j++;
+          }
+          if (cont == strlen(sub)) //encontro un <td>
+          {
+            cont1++;
+            switch(cont1)
+            {
+              case 1: //guarda la especie
+                while (tabla[i] != 60) //60 = '<'
+                {
+                  especie[k] = tabla[i];
+                  i++;
+                  k++;
+                }
+                k = 0;
+                break;
+              case 8: //guarda la variacion
+                while (tabla[i] != 32) //32 = ' '
+                {
+                  variacion[k] = tabla[i];
+                  i++;
+                  k++;
+                }
+                i++;
+                k = 0;
+                //remplaza la coma por un punto
+                for (p=variacion ; p=strchr(p, ',') ; ++p)
+                  *p = '.';
+                //convierte el string variacion a float
+                sscanf(variacion, "%f", &fVariacion);
+                if (fVariacion > 0.5)
+                  printf("%s: %.2f\n", especie, fVariacion);
+              	memset(especie, '\0', sizeof especie);
+              	memset(variacion, '\0', sizeof variacion);
+                break;
+              case 16: //termino de leer la fila
+                //resetea el contador de <td>
+                cont1 = 0;
+                break;
+            }
+          }
+          else
+            i++;
+        }
+        return true;
+      }
+    }
     pclose(www);
     return true;
   }
@@ -95,65 +155,44 @@ bool Variacion(char ruta[])
     return false;
 }
 
-//estoy tratrando de recortar todo el html y que guardemos en un string solo la tabla (https://puu.sh/G1EQG/439029db62.png)
-bool DevolverTabla(char ruta[])
+void removeSubstr(char *string, char *sub)
 {
-  FILE *popen(const char *command, const char *node);
-	int pclose(FILE *stream);
-  char buffer[129024];
-  char str[15];
-  FILE *www;
-  if (www = popen(ruta, "r"))
+  char *match;
+  int len = strlen(sub);
+  while ((match = strstr(string, sub)))
   {
-    fgets(buffer, sizeof(buffer), www);
-    strcpy(str, buffer);
-    while (fgets(buffer, sizeof(buffer), www) != NULL)
-    	strcat(str, buffer);
-    pclose(www);
-    char *tok = strtok(NULL, "<tbody><tr><td>Especie</td><td>Vto.</td><td>Cant. Nominal</td><td>Precio Compra</td><td>Precio Venta</td><td>Cant. Nominal</td><td>Último</td><td>Variación %</td><td>Apertura</td><td>Máximo</td><td>Mínimo</td><td>Cierre Ant.</td><td>Vol. Nominal</td><td>Monto Operado ($)</td><td>Cant. Ope.</td><td>Hora Cotización</td></tr><tr");  	
-		printf("\ntok: %s", tok);
-    return true;
+    *match = '\0';
+    strcat(string, match+len);
   }
-  else
-    return false;
 }
-/*
-char *s = "asdf,1234,qwer";
-char str[15];
-strcpy(str, s);
-printf("\nstr: %s", str);
-char *tok = strtok(str, ",");
-printf("\ntok: %s", tok);
-tok = strtok(NULL, ",");
-printf("\ntok: %s", tok);
-tok = strtok(NULL, ",");
-printf("\ntok: %s", tok);
-
-str: asdf,1234,qwer
-tok: asdf
-tok: 1234
-tok: qwer*/
-
-/*<tbody><tr>
-<td>Especie</td><td>Vto.</td><td>Cant. Nominal</td><td>Precio Compra</td><td>Precio Venta</td><td>Cant. Nominal</td><td>Último</td><td>Variación %</td><td>Apertura</td><td>Máximo</td><td>Mínimo</td><td>Cierre Ant.</td><td>Vol. Nominal</td><td>Monto Operado ($)</td><td>Cant. Ope.</td><td>Hora Cotización</td>
-</tr>
-<tr>*/
 
 void Menu()
 {
   printf("\n\n****** Elija una opcion ******\n");
   printf("1 - Mostrar .html Bolsar.com\n");
-  printf("2 - Variacion .html Bolsar.com\n");
-  printf("3 - Devolver solo la tabla para analizar los datos\n");
+  printf("2 - Listar especies cuya variacion supera el 0.5%%\n");
   printf("Esc - Salir\n\n");
 }
 
-//printf("Ing. num: "); scanf("%d", &num);
-//printf("Num: %d", num);
-
 //https://52.67.80.139/test/lideres-bcba_limpio.html
-//#define INICIO_TABLA "<td>Especie</td><td>Vto.</td><td>Cant. Nominal</td><td>Precio Compra</td><td>Precio Venta</td><td>Cant. Nominal</td><td>+Ültimo</td><td>Variaci+¦n %</td><td>Apertura</td><td>M+íximo</td><td>M+¡nimo</td><td>Cierre Ant.</td><td>Vol. Nominal</td><td>Monto Operado ($)</td><td>Cant. Ope.</td><td>Hora Cotizaci+¦n</td>"
 
+//1 = Especie
+//2 = Vto.
+//3 = Cant. Nominal
+//4 = Precio Compra
+//5 = Precio Venta
+//6 = Cant. Nominal
+//7 = Último
+//8 = Variación %
+//9 = Apertura
+//10 = Máximo
+//11 = Mínimo
+//12 = Cierre Ant.
+//13 = Vol. Nominal
+//14 = Monto Operado ($)
+//15 = Cant. Ope.
+//16 = Hora Cotización
+          
 //TODO:
 //- change from all bool functions, true to 1 and false to (-1) so theres no need for extra libraries
 
